@@ -33,13 +33,19 @@ public class InetAddressCacheTest extends TestCase
     {
         InetAddressCache c = new InetAddressCache(10, 0);
 
+        assert(c.size() == 0);
+
         c.offer(InetAddress.getByName("google.com"));
+
+        assert(c.size() == 1);
+
         c.offer(InetAddress.getByName("javalobby.org"));
 
         assert(c.peek() == InetAddress.getByName("javalobby.org"));
+        
         c.offer(InetAddress.getByName("google.com"));
+        
         assert(c.peek() == InetAddress.getByName("google.com"));
-
         assert(c.size() == 2);
 
         c.remove();
