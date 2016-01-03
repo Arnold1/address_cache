@@ -4,11 +4,11 @@ import java.net.InetAddress;
 import junit.framework.TestCase;
 import java.lang.Thread;
 
-class MyWriteThread extends Thread
+class MyThread extends Thread
 {
     InetAddressCache c;
 
-    public MyWriteThread(InetAddressCache c)
+    public MyThread(InetAddressCache c)
     {
         this.c = c;
     }
@@ -51,7 +51,7 @@ public class InetAddressCacheTest extends TestCase
 
         assert(c.size() == 0);
 
-        MyWriteThread myThread = new MyWriteThread(c);
+        MyThread myThread = new MyThread(c);
         myThread.start();
 
         assert(c.take() == InetAddress.getByName("google.com"));
