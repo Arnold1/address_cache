@@ -39,7 +39,6 @@ class LinkedList<K>
     {
         if(first == null)
         {
-            assert(first == null);
             first = last = new Node<K>(v);
         }
         else
