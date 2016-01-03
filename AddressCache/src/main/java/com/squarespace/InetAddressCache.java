@@ -15,7 +15,6 @@ class CleanupTimerTask extends TimerTask
     public void run()
     {
         c.remove();
-        System.out.println("CleanupTimerTask::run()");
     }
 }
 
