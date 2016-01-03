@@ -21,16 +21,16 @@ class CleanupTimerTask extends TimerTask
 
 public class InetAddressCache implements AddressCache
 {
-    LinkedList<InetAddress> l_;
-    HashMap<InetAddress,ValueHolder<InetAddress, Node<InetAddress>>> map_;
-    int max_size_;
+    LinkedList<InetAddress> l;
+    HashMap<InetAddress,ValueHolder<InetAddress, Node<InetAddress>>> map;
+    int max_size;
     Timer timer;
 
     public InetAddressCache(int max_size, int caching_time)
     {
-        l_ = new LinkedList<InetAddress>();
-        map_ = new HashMap<InetAddress,ValueHolder<InetAddress, Node<InetAddress>>>();
-        max_size_ = max_size;
+        l = new LinkedList<InetAddress>();
+        map = new HashMap<InetAddress,ValueHolder<InetAddress, Node<InetAddress>>>();
+        this.max_size = max_size;
 
         if (caching_time > 0)
         {
@@ -41,27 +41,27 @@ public class InetAddressCache implements AddressCache
 
     void cleanup(InetAddress address)
     {
-        ValueHolder<InetAddress, Node<InetAddress>> rv = map_.get(address);
-        map_.remove(address);
-        l_.remove(rv.listLocation);
+        ValueHolder<InetAddress, Node<InetAddress>> rv = map.get(address);
+        map.remove(address);
+        l.remove(rv.listLocation);
     }
 
     public synchronized boolean offer(InetAddress address)
     {
-        if(l_.size() == max_size_)
+        if(l.size() == max_size)
         {
             return false;
         }
 
-        if(map_.containsKey(address))
+        if(map.containsKey(address))
         {
             cleanup(address);
         }
 
-        boolean empty = l_.isEmpty();
-        Node<InetAddress> ln = l_.push_front(address);
+        boolean empty = l.isEmpty();
+        Node<InetAddress> ln = l.push_front(address);
         ValueHolder<InetAddress, Node<InetAddress>> rv = new ValueHolder(address, ln);
-        map_.put(address, rv);
+        map.put(address, rv);
 
         if(empty)
         {
@@ -73,7 +73,7 @@ public class InetAddressCache implements AddressCache
 
     public synchronized boolean contains(InetAddress address)
     {
-        ValueHolder<InetAddress, Node<InetAddress>> rv = map_.get(address);
+        ValueHolder<InetAddress, Node<InetAddress>> rv = map.get(address);
 
         if(rv != null)
         {
@@ -85,12 +85,12 @@ public class InetAddressCache implements AddressCache
 
     public synchronized boolean remove(InetAddress address)
     {
-        ValueHolder<InetAddress, Node<InetAddress>> rv = map_.get(address);
+        ValueHolder<InetAddress, Node<InetAddress>> rv = map.get(address);
 
         if(rv != null)
         {
-            map_.remove(address);
-            l_.remove(rv.listLocation);
+            map.remove(address);
+            l.remove(rv.listLocation);
             return true;
         }
 
@@ -99,35 +99,35 @@ public class InetAddressCache implements AddressCache
 
     public synchronized InetAddress peek()
     {
-        if(l_.isEmpty())
+        if(l.isEmpty())
         {
             return null;
         }
 
-        return l_.front();
+        return l.front();
     }
 
     public synchronized InetAddress remove()
     {
-        if(l_.isEmpty())
+        if(l.isEmpty())
         {
             return null;
         }
 
-        InetAddress address = l_.remove_front();
-        map_.remove(address);
+        InetAddress address = l.remove_front();
+        map.remove(address);
         return address;
     }
 
     public synchronized InetAddress take() throws InterruptedException
     {
-        while(l_.isEmpty())
+        while(l.isEmpty())
         {
             wait();
         }
 
-        InetAddress address = l_.remove_back();
-        map_.remove(address);
+        InetAddress address = l.remove_back();
+        map.remove(address);
         return address;
     }
 
@@ -138,11 +138,11 @@ public class InetAddressCache implements AddressCache
 
     public int size()
     {
-        return l_.size();
+        return l.size();
     }
 
     public boolean isEmpty()
     {
-        return l_.size() == 0;
+        return l.size() == 0;
     }
 }
