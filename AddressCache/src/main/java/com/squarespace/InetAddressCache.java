@@ -130,7 +130,7 @@ public class InetAddressCache implements AddressCache
         return address;
     }
 
-    public void close()
+    public synchronized void close()
     {
         l.clear();
         map.clear();
