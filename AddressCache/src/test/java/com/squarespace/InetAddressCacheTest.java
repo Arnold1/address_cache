@@ -62,5 +62,7 @@ public class InetAddressCacheTest extends TestCase
 
         assert(c.take() == InetAddress.getByName("google.com"));
         assert(c.size() == 0);
+
+        myThread.join();
     }
 }
