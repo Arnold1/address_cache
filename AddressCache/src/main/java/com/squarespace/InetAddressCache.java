@@ -142,12 +142,12 @@ public class InetAddressCache implements AddressCache
         }
     }
 
-    public int size()
+    public synchronized int size()
     {
         return l.size();
     }
 
-    public boolean isEmpty()
+    public synchronized boolean isEmpty()
     {
         return l.size() == 0;
     }
