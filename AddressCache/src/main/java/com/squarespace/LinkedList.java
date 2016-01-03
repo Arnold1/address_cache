@@ -138,4 +138,16 @@ class LinkedList<K>
     {
         return currentSize == 0;
     }
+
+    public void clear()
+    {
+        if(first == null)
+        {
+            return;
+        }
+        
+        first = null;
+        last = null;
+        currentSize = 0;
+    }
 } 

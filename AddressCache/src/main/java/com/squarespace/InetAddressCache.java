@@ -132,7 +132,14 @@ public class InetAddressCache implements AddressCache
 
     public void close()
     {
+        l.clear();
+        map.clear();
 
+        if(timer != null)
+        {
+            timer.cancel();
+            timer.purge();
+        }
     }
 
     public int size()

@@ -64,5 +64,6 @@ public class InetAddressCacheTest extends TestCase
         assert(c.size() == 0);
 
         myThread.join();
+        c.close();
     }
 }
