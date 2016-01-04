@@ -73,11 +73,11 @@ public class InetAddressCache implements AddressCache
         synchronized(lock)
         {
             map.put(address, rv);
-        }
 
-        if(empty)
-        {
-            notify();
+            if(empty)
+            {
+                notify();
+            }
         }
 
         return true;
@@ -151,13 +151,13 @@ public class InetAddressCache implements AddressCache
 
     public InetAddress take() throws InterruptedException
     {
-        while(l.isEmpty())
-        {
-            wait();
-        }
-
         synchronized(lock)
         {
+            while(l.isEmpty())
+            {
+                lock.wait();
+            }
+
             InetAddress address = l.remove_back();
             map.remove(address);
             return address;
