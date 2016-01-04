@@ -65,5 +65,15 @@ public class InetAddressCacheTest extends TestCase
 
         myThread.join();
         c.close();
+
+        InetAddressCache c2 = new InetAddressCache(10, 1000);
+        c2.offer(InetAddress.getByName("google.com"));
+        c2.offer(InetAddress.getByName("javalobby.org"));
+
+        Thread.sleep(5000);
+
+        assert(c2.size() == 0);
+
+        c2.close();
     }
 }
