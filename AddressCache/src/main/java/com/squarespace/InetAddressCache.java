@@ -54,9 +54,6 @@ public class InetAddressCache implements AddressCache
             return false;
         }
 
-        boolean empty;
-        Node<InetAddress> ln;
-
         synchronized(lock)
         {
             if(map.containsKey(address))
@@ -64,14 +61,10 @@ public class InetAddressCache implements AddressCache
                 cleanup(address);
             }
 
-            empty = l.isEmpty();
-            ln = l.push_front(address);
-        }
+            boolean empty = l.isEmpty();
+            Node<InetAddress> ln = l.push_front(address);
 
-        ValueHolder<InetAddress, Node<InetAddress>> rv = new ValueHolder(address, ln);
-
-        synchronized(lock)
-        {
+            ValueHolder<InetAddress, Node<InetAddress>> rv = new ValueHolder(address, ln);
             map.put(address, rv);
 
             if(empty)
