@@ -24,12 +24,14 @@ public class InetAddressCache implements AddressCache
     HashMap<InetAddress,ValueHolder<InetAddress, Node<InetAddress>>> map;
     int max_size;
     Timer timer;
+    Object lock;
 
     public InetAddressCache(int max_size, int caching_time)
     {
         l = new LinkedList<InetAddress>();
         map = new HashMap<InetAddress,ValueHolder<InetAddress, Node<InetAddress>>>();
         this.max_size = max_size;
+        lock = new Object();
 
         if (caching_time > 0)
         {
@@ -45,22 +47,33 @@ public class InetAddressCache implements AddressCache
         l.remove(rv.listLocation);
     }
 
-    public synchronized boolean offer(InetAddress address)
+    public boolean offer(InetAddress address)
     {
         if(l.size() == max_size)
         {
             return false;
         }
 
-        if(map.containsKey(address))
+        boolean empty;
+        Node<InetAddress> ln;
+
+        synchronized(lock)
         {
-            cleanup(address);
+            if(map.containsKey(address))
+            {
+                cleanup(address);
+            }
+
+            empty = l.isEmpty();
+            ln = l.push_front(address);
         }
 
-        boolean empty = l.isEmpty();
-        Node<InetAddress> ln = l.push_front(address);
         ValueHolder<InetAddress, Node<InetAddress>> rv = new ValueHolder(address, ln);
-        map.put(address, rv);
+
+        synchronized(lock)
+        {
+            map.put(address, rv);
+        }
 
         if(empty)
         {
@@ -70,9 +83,14 @@ public class InetAddressCache implements AddressCache
         return true;
     }
 
-    public synchronized boolean contains(InetAddress address)
+    public boolean contains(InetAddress address)
     {
-        ValueHolder<InetAddress, Node<InetAddress>> rv = map.get(address);
+        ValueHolder<InetAddress, Node<InetAddress>> rv;
+
+        synchronized(lock)
+        {
+            rv = map.get(address);
+        }
 
         if(rv != null)
         {
@@ -82,72 +100,91 @@ public class InetAddressCache implements AddressCache
         return false;
     }
 
-    public synchronized boolean remove(InetAddress address)
+    public boolean remove(InetAddress address)
     {
-        ValueHolder<InetAddress, Node<InetAddress>> rv = map.get(address);
+        ValueHolder<InetAddress, Node<InetAddress>> rv;
+        synchronized(lock)
+        {
+            rv = map.get(address);
+        }
 
         if(rv != null)
         {
+            synchronized(lock)
+            {
+                map.remove(address);
+                l.remove(rv.listLocation);
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    public InetAddress peek()
+    {
+        if(l.isEmpty())
+        {
+            return null;
+        }
+
+        synchronized(lock)
+        {
+            return l.front();
+        }
+    }
+
+    public InetAddress remove()
+    {
+        if(l.isEmpty())
+        {
+            return null;
+        }
+
+        synchronized(lock)
+        {
+            InetAddress address = l.remove_front();
             map.remove(address);
-            l.remove(rv.listLocation);
-            return true;
+            return address;
         }
-
-        return false;
     }
 
-    public synchronized InetAddress peek()
-    {
-        if(l.isEmpty())
-        {
-            return null;
-        }
-
-        return l.front();
-    }
-
-    public synchronized InetAddress remove()
-    {
-        if(l.isEmpty())
-        {
-            return null;
-        }
-
-        InetAddress address = l.remove_front();
-        map.remove(address);
-        return address;
-    }
-
-    public synchronized InetAddress take() throws InterruptedException
+    public InetAddress take() throws InterruptedException
     {
         while(l.isEmpty())
         {
             wait();
         }
 
-        InetAddress address = l.remove_back();
-        map.remove(address);
-        return address;
-    }
-
-    public synchronized void close()
-    {
-        l.clear();
-        map.clear();
-
-        if(timer != null)
+        synchronized(lock)
         {
-            timer.cancel();
-            timer.purge();
+            InetAddress address = l.remove_back();
+            map.remove(address);
+            return address;
         }
     }
 
-    public synchronized int size()
+    public void close()
+    {
+        synchronized(lock)
+        {
+            l.clear();
+            map.clear();
+
+            if (timer != null)
+            {
+                timer.cancel();
+                timer.purge();
+            }
+        }
+    }
+
+    public int size()
     {
         return l.size();
     }
 
-    public synchronized boolean isEmpty()
+    public boolean isEmpty()
     {
         return l.size() == 0;
     }
