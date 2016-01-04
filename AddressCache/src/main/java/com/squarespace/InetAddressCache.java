@@ -76,7 +76,7 @@ public class InetAddressCache implements AddressCache
 
             if(empty)
             {
-                notify();
+                lock.notify();
             }
         }
 
