@@ -90,20 +90,13 @@ public class InetAddressCache implements AddressCache
 
     public boolean remove(InetAddress address)
     {
-        ValueHolder<InetAddress, Node<InetAddress>> rv;
         synchronized(lock)
         {
-            rv = map.get(address);
-        }
-
-        if(rv != null)
-        {
-            synchronized(lock)
+            if(map.containsKey(address)) 
             {
-                map.remove(address);
-                l.remove(rv.listLocation);
-            }
-            return true;
+		cleanup(address);
+		return true;
+	    }
         }
 
         return false;
