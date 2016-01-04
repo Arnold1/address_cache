@@ -85,19 +85,14 @@ public class InetAddressCache implements AddressCache
 
     public boolean contains(InetAddress address)
     {
-        ValueHolder<InetAddress, Node<InetAddress>> rv;
-
         synchronized(lock)
         {
-            rv = map.get(address);
+            if(map.containsKey(address))
+            {
+                return true;
+            }
+            return false;
         }
-
-        if(rv != null)
-        {
-            return true;
-        }
-
-        return false;
     }
 
     public boolean remove(InetAddress address)
