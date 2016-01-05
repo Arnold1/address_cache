@@ -3,170 +3,180 @@ package com.squarespace;
 import java.util.*;
 import java.net.InetAddress;
 
-class CleanupTimerTask extends TimerTask
-{
+class CleanupTimerTask extends TimerTask {
     InetAddressCache c;
 
-    public CleanupTimerTask(InetAddressCache c)
-    {
+    public CleanupTimerTask(InetAddressCache c) {
         this.c = c;
     }
 
-    public void run()
-    {
-        c.remove();
+    public void run() {
+        long currTime = System.currentTimeMillis();
+        c.remove(currTime);
     }
 }
 
-public class InetAddressCache implements AddressCache
-{
-    LinkedList<InetAddress> l;
-    HashMap<InetAddress,ValueHolder<InetAddress, Node<InetAddress>>> map;
-    int max_size;
+// I implemented the following approach as shown on page 13:
+// https://guava-libraries.googlecode.com/files/ConcurrentCachingAtGoogle.pdf
+public class InetAddressCache implements AddressCache {
+    LinkedList<Entry> ttiList; // sorted by access time - LRU
+    LinkedList<Entry> ttlList; // sorted by expiration
+    HashMap<InetAddress,Pair<ValueHolder<Entry, Node<Entry>>,
+            ValueHolder<Entry, Node<Entry>>>> map;
+    int maxSize;
+    long cachingTime;
     Timer timer;
     Object lock;
 
-    public InetAddressCache(int max_size, int caching_time)
-    {
-        l = new LinkedList<InetAddress>();
-        map = new HashMap<InetAddress,ValueHolder<InetAddress, Node<InetAddress>>>();
-        this.max_size = max_size;
-        lock = new Object();
+    public InetAddressCache(int maxSize, long cachingTime) {
+        this.ttiList = new LinkedList<Entry>();
+        this.ttlList = new LinkedList<Entry>();
+        this.map = new HashMap<InetAddress,Pair<ValueHolder<Entry, Node<Entry>>,
+        ValueHolder<Entry, Node<Entry>>>>();
+        this.maxSize = maxSize;
+        this.cachingTime = cachingTime;
+        this.lock = new Object();
+        this.timer = new Timer(true);
+        this.timer.schedule(new CleanupTimerTask(this), 0, 1000);
+    }
 
-        if (caching_time > 0)
-        {
-            timer = new Timer(true);
-            timer.schedule(new CleanupTimerTask(this), 0, caching_time);
+    // runtime complexity: O(1)
+    void cleanup(InetAddress address) {
+        Pair<ValueHolder<Entry, Node<Entry>>, ValueHolder<Entry, Node<Entry>>> rv = map.get(address);
+        map.remove(address);
+        ttiList.remove(rv.getElement0().listLocation);
+        ttlList.remove(rv.getElement1().listLocation);
+    }
+
+    // runtime complexity: O(1)
+    void remove(long currTime) {
+        synchronized(lock) {
+            while (!ttiList.isEmpty()) {
+                long timestamp = ttiList.back().timestamp;
+
+                if ((currTime - timestamp) >= cachingTime) {
+                    Entry e = ttiList.removeBack();
+                    Pair<ValueHolder<Entry, Node<Entry>>, ValueHolder<Entry, Node<Entry>>> rv = map.get(e.address);
+                    map.remove(e.address);
+                    ttlList.remove(rv.getElement1().listLocation);
+                } else {
+                    break;
+                }
+            }
         }
     }
 
-    void cleanup(InetAddress address)
-    {
-        ValueHolder<InetAddress, Node<InetAddress>> rv = map.get(address);
-        map.remove(address);
-        l.remove(rv.listLocation);
+    // runtime complexity: O(1)
+    void insert(InetAddress address) {
+        Entry e = new Entry(address, System.currentTimeMillis());
+        Node<Entry> ln = ttiList.pushFront(e);
+        Node<Entry> ln2 = ttlList.pushFront(e);
+
+        ValueHolder<Entry, Node<Entry>> rv = new ValueHolder(address, ln);
+        ValueHolder<Entry, Node<Entry>> rv2 = new ValueHolder(address, ln2);
+        map.put(address, new Pair(rv, rv2));
     }
 
-    public boolean offer(InetAddress address)
-    {
-        if(l.size() == max_size)
-        {
+    // runtime complexity: O(1)
+    public boolean offer(InetAddress address) {
+        if(ttiList.size() == maxSize) {
             return false;
         }
 
-        synchronized(lock)
-        {
-            if(map.containsKey(address))
-            {
+        synchronized(lock) {
+            if(map.containsKey(address)) {
                 cleanup(address);
             }
 
-            boolean empty = l.isEmpty();
-            Node<InetAddress> ln = l.push_front(address);
+            boolean empty = ttiList.isEmpty();
+            insert(address);
 
-            ValueHolder<InetAddress, Node<InetAddress>> rv = new ValueHolder(address, ln);
-            map.put(address, rv);
-
-            if(empty)
-            {
+            if(empty) {
                 lock.notify();
             }
         }
-
         return true;
     }
 
-    public boolean contains(InetAddress address)
-    {
-        synchronized(lock)
-        {
-            if(map.containsKey(address))
-            {
+    // runtime complexity: O(1)
+    public boolean contains(InetAddress address) {
+        synchronized(lock) {
+            if(map.containsKey(address)) {
                 return true;
             }
             return false;
         }
     }
 
-    public boolean remove(InetAddress address)
-    {
-        synchronized(lock)
-        {
-            if(map.containsKey(address)) 
-            {
-		cleanup(address);
-		return true;
-	    }
+    // runtime complexity: O(1)
+    public boolean remove(InetAddress address) {
+        synchronized(lock) {
+            if(map.containsKey(address)) {
+                cleanup(address);
+                return true;
+            }
         }
 
         return false;
     }
 
-    public InetAddress peek()
-    {
-        if(l.isEmpty())
-        {
+    // runtime complexity: O(1)
+    public InetAddress peek() {
+        if(ttiList.isEmpty()) {
             return null;
         }
 
-        synchronized(lock)
-        {
-            return l.front();
+        synchronized(lock) {
+            return ttiList.front().address;
         }
     }
 
-    public InetAddress remove()
-    {
-        if(l.isEmpty())
-        {
+    // runtime complexity: O(1)
+    public InetAddress remove() {
+        if(ttiList.isEmpty()) {
             return null;
         }
 
-        synchronized(lock)
-        {
-            InetAddress address = l.remove_front();
+        synchronized(lock) {
+            InetAddress address = ttiList.removeFront().address;
             map.remove(address);
             return address;
         }
     }
 
-    public InetAddress take() throws InterruptedException
-    {
-        synchronized(lock)
-        {
-            while(l.isEmpty())
-            {
+    // runtime complexity: O(1)
+    public InetAddress take() throws InterruptedException {
+        synchronized(lock) {
+            while(ttiList.isEmpty()) {
                 lock.wait();
             }
 
-            InetAddress address = l.remove_back();
+            InetAddress address = ttiList.removeBack().address;
             map.remove(address);
             return address;
         }
     }
 
-    public void close()
-    {
-        synchronized(lock)
-        {
-            l.clear();
+    // runtime complexity: O(1)
+    public void close() {
+        synchronized(lock) {
+            ttiList.clear();
             map.clear();
 
-            if (timer != null)
-            {
+            if (timer != null) {
                 timer.cancel();
                 timer.purge();
             }
         }
     }
 
-    public int size()
-    {
-        return l.size();
+    // runtime complexity: O(1)
+    public int size() {
+        return ttiList.size();
     }
 
-    public boolean isEmpty()
-    {
-        return l.size() == 0;
+    // runtime complexity: O(1)
+    public boolean isEmpty() {
+        return ttiList.size() == 0;
     }
 }
