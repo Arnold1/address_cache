@@ -12,14 +12,14 @@ class CleanupTimerTask extends TimerTask {
 
     public void run() {
         long currTime = System.currentTimeMillis();
-        c.remove(currTime);
+        c.removeExpired(currTime);
     }
 }
 
 class NodeIteratorImpl extends NodeIterator<Entry> {
-	public NodeIteratorImpl(Node<Entry> ll) {
-		super(ll);
-	}
+    public NodeIteratorImpl(Node<Entry> ll) {
+        super(ll);
+    }
 }
 
 // I implemented the following approach as shown on page 13:
@@ -45,16 +45,18 @@ public class InetAddressCache implements AddressCache {
         this.timer.schedule(new CleanupTimerTask(this), 0, cleanupTime);
     }
 
-    // runtime complexity: O(1)
-    void cleanup(InetAddress address) {
+    // runtime complexity: O(1)    
+    void cleanup(InetAddress address, boolean removeTtl) {
         Pair<NodeIteratorImpl, NodeIteratorImpl> rv = map.get(address);
         map.remove(address);
         ttiList.remove(rv.getElement0().listLocation);
-        ttlList.remove(rv.getElement1().listLocation);
+        if (removeTtl) {
+        	ttlList.remove(rv.getElement1().listLocation);
+        }
     }
 
-    // runtime complexity: O(n) ... n is the number of expired elements in the cache which are removed
-    void remove(long currTime) {
+    // runtime complexity: O(n) ... n is the number of expired elements to remove
+    void removeExpired(long currTime) {
         synchronized(lock) {
             while (!ttlList.isEmpty()) {
                 long timestamp = ttlList.back().timestamp;
@@ -62,7 +64,7 @@ public class InetAddressCache implements AddressCache {
                 if ((currTime - timestamp) >= cachingTime) {
                     Entry e = ttlList.removeBack();
                     Pair<NodeIteratorImpl, NodeIteratorImpl> rv = map.get(e.address);
-                    map.remove(e.address);
+                    map.remove(e.address);                
                     ttiList.remove(rv.getElement0().listLocation);
                 } else {
                     break;
@@ -72,14 +74,19 @@ public class InetAddressCache implements AddressCache {
     }
 
     // runtime complexity: O(1)
-    void insert(InetAddress address) {
+    void insert(InetAddress address, NodeIteratorImpl rv2) {
         Entry e = new Entry(address, System.currentTimeMillis());
         Node<Entry> ln = ttiList.pushFront(e);
-        Node<Entry> ln2 = ttlList.pushFront(e);
-
         NodeIteratorImpl rv = new NodeIteratorImpl(ln);
-        NodeIteratorImpl rv2 = new NodeIteratorImpl(ln2);
-        map.put(address, new Pair(rv, rv2));
+        
+        if (rv2 == null) {
+        	Node<Entry> ln2 = ttlList.pushFront(e);
+        	rv2 = new NodeIteratorImpl(ln2);
+        	map.put(address, new Pair(rv, rv2));
+        }
+        else {
+        	map.put(address, new Pair(rv, rv2));
+        }
     }
 
     // runtime complexity: O(1)
@@ -89,12 +96,15 @@ public class InetAddressCache implements AddressCache {
         }
 
         synchronized(lock) {
+        	NodeIteratorImpl rv2 = null;
+        	
             if(map.containsKey(address)) {
-                cleanup(address);
+            	rv2 = map.get(address).getElement1();
+                cleanup(address, false);
             }
 
             boolean empty = ttiList.isEmpty();
-            insert(address);
+            insert(address, rv2);
 
             if(empty) {
                 lock.notify();
@@ -117,7 +127,7 @@ public class InetAddressCache implements AddressCache {
     public boolean remove(InetAddress address) {
         synchronized(lock) {
             if(map.containsKey(address)) {
-                cleanup(address);
+                cleanup(address, true);
                 return true;
             }
         }
