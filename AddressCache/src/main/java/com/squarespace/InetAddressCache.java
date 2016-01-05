@@ -16,13 +16,18 @@ class CleanupTimerTask extends TimerTask {
     }
 }
 
+class NodeIteratorImpl extends NodeIterator<Entry> {
+	public NodeIteratorImpl(Node<Entry> ll) {
+		super(ll);
+	}
+}
+
 // I implemented the following approach as shown on page 13:
 // https://guava-libraries.googlecode.com/files/ConcurrentCachingAtGoogle.pdf
 public class InetAddressCache implements AddressCache {
     LinkedList<Entry> ttiList; // sorted by access time - LRU
     LinkedList<Entry> ttlList; // sorted by expiration
-    HashMap<InetAddress,Pair<ValueHolder<Entry, Node<Entry>>,
-            ValueHolder<Entry, Node<Entry>>>> map;
+    HashMap<InetAddress,Pair<NodeIteratorImpl, NodeIteratorImpl>> map;
     int maxSize;
     long cachingTime;
     Timer timer;
@@ -31,8 +36,7 @@ public class InetAddressCache implements AddressCache {
     public InetAddressCache(int maxSize, long cachingTime) {
         this.ttiList = new LinkedList<Entry>();
         this.ttlList = new LinkedList<Entry>();
-        this.map = new HashMap<InetAddress,Pair<ValueHolder<Entry, Node<Entry>>,
-        ValueHolder<Entry, Node<Entry>>>>();
+        this.map = new HashMap<InetAddress,Pair<NodeIteratorImpl, NodeIteratorImpl>>();
         this.maxSize = maxSize;
         this.cachingTime = cachingTime;
         this.lock = new Object();
@@ -42,7 +46,7 @@ public class InetAddressCache implements AddressCache {
 
     // runtime complexity: O(1)
     void cleanup(InetAddress address) {
-        Pair<ValueHolder<Entry, Node<Entry>>, ValueHolder<Entry, Node<Entry>>> rv = map.get(address);
+        Pair<NodeIteratorImpl, NodeIteratorImpl> rv = map.get(address);
         map.remove(address);
         ttiList.remove(rv.getElement0().listLocation);
         ttlList.remove(rv.getElement1().listLocation);
@@ -56,7 +60,7 @@ public class InetAddressCache implements AddressCache {
 
                 if ((currTime - timestamp) >= cachingTime) {
                     Entry e = ttiList.removeBack();
-                    Pair<ValueHolder<Entry, Node<Entry>>, ValueHolder<Entry, Node<Entry>>> rv = map.get(e.address);
+                    Pair<NodeIteratorImpl, NodeIteratorImpl> rv = map.get(e.address);
                     map.remove(e.address);
                     ttlList.remove(rv.getElement1().listLocation);
                 } else {
@@ -72,8 +76,8 @@ public class InetAddressCache implements AddressCache {
         Node<Entry> ln = ttiList.pushFront(e);
         Node<Entry> ln2 = ttlList.pushFront(e);
 
-        ValueHolder<Entry, Node<Entry>> rv = new ValueHolder(address, ln);
-        ValueHolder<Entry, Node<Entry>> rv2 = new ValueHolder(address, ln2);
+        NodeIteratorImpl rv = new NodeIteratorImpl(ln);
+        NodeIteratorImpl rv2 = new NodeIteratorImpl(ln2);
         map.put(address, new Pair(rv, rv2));
     }
 

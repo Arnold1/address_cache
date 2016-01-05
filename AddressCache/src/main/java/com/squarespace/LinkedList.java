@@ -12,12 +12,10 @@ class Node<K> {
     }
 }
 
-class ValueHolder<K,V> {
-    V value;
+class NodeIterator<K> {
     Node<K> listLocation;
 
-    public ValueHolder(V value, Node<K> ll) {
-        this.value = value;
+    public NodeIterator(Node<K> ll) {
         this.listLocation = ll;
     }
 }
