@@ -57,7 +57,7 @@ public class InetAddressCache implements AddressCache {
     void remove(long currTime) {
         synchronized(lock) {
             while (!ttlList.isEmpty()) {
-                long timestamp = ttiList.back().timestamp;
+                long timestamp = ttlList.back().timestamp;
 
                 if ((currTime - timestamp) >= cachingTime) {
                     Entry e = ttlList.removeBack();
