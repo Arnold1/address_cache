@@ -12,14 +12,6 @@ class Node<K> {
     }
 }
 
-class NodeIterator<K> {
-    Node<K> listLocation;
-
-    public NodeIterator(Node<K> ll) {
-        this.listLocation = ll;
-    }
-}
-
 class LinkedList<K> {
     Node<K> first = null;
     Node<K> last = null;

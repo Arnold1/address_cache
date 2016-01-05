@@ -16,18 +16,12 @@ class CleanupTimerTask extends TimerTask {
     }
 }
 
-class NodeIteratorImpl extends NodeIterator<Entry> {
-    public NodeIteratorImpl(Node<Entry> ll) {
-        super(ll);
-    }
-}
-
 // I implemented the following approach as shown on page 13:
 // https://guava-libraries.googlecode.com/files/ConcurrentCachingAtGoogle.pdf
 public class InetAddressCache implements AddressCache {
     LinkedList<Entry> ttiList; // sorted by access time - LRU
     LinkedList<Entry> ttlList; // sorted by expiration
-    HashMap<InetAddress,Pair<NodeIteratorImpl, NodeIteratorImpl>> map;
+    HashMap<InetAddress,Pair<Node<Entry>, Node<Entry>>> map;
     int maxSize;
     long cachingTime;
     Timer timer;
@@ -37,7 +31,7 @@ public class InetAddressCache implements AddressCache {
     public InetAddressCache(int maxSize, long cachingTime) {
         this.ttiList = new LinkedList<Entry>();
         this.ttlList = new LinkedList<Entry>();
-        this.map = new HashMap<InetAddress,Pair<NodeIteratorImpl, NodeIteratorImpl>>();
+        this.map = new HashMap<InetAddress,Pair<Node<Entry>, Node<Entry>>>();
         this.maxSize = maxSize;
         this.cachingTime = cachingTime;
         this.lock = new Object();
@@ -45,13 +39,13 @@ public class InetAddressCache implements AddressCache {
         this.timer.schedule(new CleanupTimerTask(this), 0, cleanupTime);
     }
 
-    // runtime complexity: O(1)    
+    // runtime complexity: O(1)
     void cleanup(InetAddress address, boolean removeTtl) {
-        Pair<NodeIteratorImpl, NodeIteratorImpl> rv = map.get(address);
+        Pair<Node<Entry>, Node<Entry>> rv = map.get(address);
         map.remove(address);
-        ttiList.remove(rv.getElement0().listLocation);
+        ttiList.remove(rv.getElement0());
         if (removeTtl) {
-        	ttlList.remove(rv.getElement1().listLocation);
+            ttlList.remove(rv.getElement1());
         }
     }
 
@@ -63,9 +57,9 @@ public class InetAddressCache implements AddressCache {
 
                 if ((currTime - timestamp) >= cachingTime) {
                     Entry e = ttlList.removeBack();
-                    Pair<NodeIteratorImpl, NodeIteratorImpl> rv = map.get(e.address);
-                    map.remove(e.address);                
-                    ttiList.remove(rv.getElement0().listLocation);
+                    Node<Entry> ttiPtr = map.get(e.address).getElement0();
+                    map.remove(e.address);
+                    ttiList.remove(ttiPtr);
                 } else {
                     break;
                 }
@@ -74,19 +68,15 @@ public class InetAddressCache implements AddressCache {
     }
 
     // runtime complexity: O(1)
-    void insert(InetAddress address, NodeIteratorImpl rv2) {
+    void insert(InetAddress address, Node<Entry> ttlPtr) {
         Entry e = new Entry(address, System.currentTimeMillis());
-        Node<Entry> ln = ttiList.pushFront(e);
-        NodeIteratorImpl rv = new NodeIteratorImpl(ln);
-        
-        if (rv2 == null) {
-        	Node<Entry> ln2 = ttlList.pushFront(e);
-        	rv2 = new NodeIteratorImpl(ln2);
-        	map.put(address, new Pair(rv, rv2));
-        }
-        else {
-        	map.put(address, new Pair(rv, rv2));
-        }
+        Node<Entry> ttiPtr = ttiList.pushFront(e);
+
+        if (ttlPtr == null) {
+        	ttlPtr = ttlList.pushFront(e);
+        } 
+
+        map.put(address, new Pair(ttiPtr, ttlPtr));
     }
 
     // runtime complexity: O(1)
@@ -96,15 +86,15 @@ public class InetAddressCache implements AddressCache {
         }
 
         synchronized(lock) {
-        	NodeIteratorImpl rv2 = null;
+        	Node<Entry> ttlPtr = null;
         	
-            if(map.containsKey(address)) {
-            	rv2 = map.get(address).getElement1();
+        	if(map.containsKey(address)) {
+            	ttlPtr = map.get(address).getElement1();
                 cleanup(address, false);
             }
 
             boolean empty = ttiList.isEmpty();
-            insert(address, rv2);
+            insert(address, ttlPtr);
 
             if(empty) {
                 lock.notify();
