@@ -55,7 +55,7 @@ public class InetAddressCacheTest extends TestCase {
 
         c.close();
         
-        InetAddressCache c2 = new InetAddressCache(10, 5000);
+        InetAddressCache c2 = new InetAddressCache(10, 2000);
         c2.offer(InetAddress.getByName("google.com"));
         c2.offer(InetAddress.getByName("javalobby.org"));
         
