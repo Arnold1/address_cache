@@ -25,7 +25,7 @@ class MyWriteThread extends Thread {
 
 public class InetAddressCacheTest extends TestCase {
     public void test() throws Exception {
-        InetAddressCache c = new InetAddressCache(10, 0);
+        InetAddressCache c = new InetAddressCache(10, 10000);
 
         c.offer(InetAddress.getByName("google.com"));
         c.offer(InetAddress.getByName("javalobby.org"));

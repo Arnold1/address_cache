@@ -32,6 +32,7 @@ public class InetAddressCache implements AddressCache {
     long cachingTime;
     Timer timer;
     Object lock;
+    final int cleanupTime = 5000;
 
     public InetAddressCache(int maxSize, long cachingTime) {
         this.ttiList = new LinkedList<Entry>();
@@ -41,7 +42,7 @@ public class InetAddressCache implements AddressCache {
         this.cachingTime = cachingTime;
         this.lock = new Object();
         this.timer = new Timer(true);
-        this.timer.schedule(new CleanupTimerTask(this), 0, 1000);
+        this.timer.schedule(new CleanupTimerTask(this), 0, cleanupTime);
     }
 
     // runtime complexity: O(1)
@@ -52,17 +53,17 @@ public class InetAddressCache implements AddressCache {
         ttlList.remove(rv.getElement1().listLocation);
     }
 
-    // runtime complexity: O(1)
+    // runtime complexity: O(n) ... n is the number of expired elements in the cache which are removed
     void remove(long currTime) {
         synchronized(lock) {
-            while (!ttiList.isEmpty()) {
+            while (!ttlList.isEmpty()) {
                 long timestamp = ttiList.back().timestamp;
 
                 if ((currTime - timestamp) >= cachingTime) {
-                    Entry e = ttiList.removeBack();
+                    Entry e = ttlList.removeBack();
                     Pair<NodeIteratorImpl, NodeIteratorImpl> rv = map.get(e.address);
                     map.remove(e.address);
-                    ttlList.remove(rv.getElement1().listLocation);
+                    ttiList.remove(rv.getElement0().listLocation);
                 } else {
                     break;
                 }
