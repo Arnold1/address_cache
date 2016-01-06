@@ -19,9 +19,9 @@ class CleanupTimerTask extends TimerTask {
 // I implemented the following approach as shown on page 13:
 // https://guava-libraries.googlecode.com/files/ConcurrentCachingAtGoogle.pdf
 public class InetAddressCache implements AddressCache {
-    LinkedList<Entry> ttiList; // sorted by access time - LRU
-    LinkedList<Entry> ttlList; // sorted by expiration
-    HashMap<InetAddress,Pair<Node<Entry>, Node<Entry>>> map;
+    LinkedList<CacheEntry> ttiList; // sorted by access time - LRU
+    LinkedList<CacheEntry> ttlList; // sorted by expiration
+    HashMap<InetAddress,Pair<Node<CacheEntry>, Node<CacheEntry>>> map;
     int maxSize;
     long cachingTime;
     Timer timer;
@@ -29,9 +29,9 @@ public class InetAddressCache implements AddressCache {
     final int cleanupTime = 5000;
 
     public InetAddressCache(int maxSize, long cachingTime) {
-        this.ttiList = new LinkedList<Entry>();
-        this.ttlList = new LinkedList<Entry>();
-        this.map = new HashMap<InetAddress,Pair<Node<Entry>, Node<Entry>>>();
+        this.ttiList = new LinkedList<CacheEntry>();
+        this.ttlList = new LinkedList<CacheEntry>();
+        this.map = new HashMap<InetAddress,Pair<Node<CacheEntry>, Node<CacheEntry>>>();
         this.maxSize = maxSize;
         this.cachingTime = cachingTime;
         this.lock = new Object();
@@ -41,7 +41,7 @@ public class InetAddressCache implements AddressCache {
 
     // runtime complexity: O(1)
     void removeEntry(InetAddress address, boolean removeTtl) {
-        Pair<Node<Entry>, Node<Entry>> rv = map.get(address);
+        Pair<Node<CacheEntry>, Node<CacheEntry>> rv = map.get(address);
         map.remove(address);
         ttiList.remove(rv.getElement0());
         if (removeTtl) {
@@ -56,8 +56,8 @@ public class InetAddressCache implements AddressCache {
                 long timestamp = ttlList.back().timestamp;
 
                 if ((currTime - timestamp) >= cachingTime) {
-                    Entry e = ttlList.removeBack();
-                    Node<Entry> ttiPtr = map.get(e.address).getElement0();
+                    CacheEntry e = ttlList.removeBack();
+                    Node<CacheEntry> ttiPtr = map.get(e.address).getElement0();
                     map.remove(e.address);
                     ttiList.remove(ttiPtr);
                 } else {
@@ -68,9 +68,9 @@ public class InetAddressCache implements AddressCache {
     }
 
     // runtime complexity: O(1)
-    void insert(InetAddress address, Node<Entry> ttlPtr) {
-        Entry e = new Entry(address, System.currentTimeMillis());
-        Node<Entry> ttiPtr = ttiList.pushFront(e);
+    void insert(InetAddress address, Node<CacheEntry> ttlPtr) {
+        CacheEntry e = new CacheEntry(address, System.currentTimeMillis());
+        Node<CacheEntry> ttiPtr = ttiList.pushFront(e);
 
         if (ttlPtr == null) {
             ttlPtr = ttlList.pushFront(e);
@@ -86,7 +86,7 @@ public class InetAddressCache implements AddressCache {
         }
 
         synchronized(lock) {
-            Node<Entry> ttlPtr = null;
+            Node<CacheEntry> ttlPtr = null;
 
             if(map.containsKey(address)) {
                 ttlPtr = map.get(address).getElement1();
@@ -117,7 +117,7 @@ public class InetAddressCache implements AddressCache {
     public boolean remove(InetAddress address) {
         synchronized(lock) {
             if(map.containsKey(address)) {
-            	removeEntry(address, true);
+                removeEntry(address, true);
                 return true;
             }
         }
