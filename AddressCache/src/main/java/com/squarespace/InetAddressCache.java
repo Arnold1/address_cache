@@ -40,7 +40,7 @@ public class InetAddressCache implements AddressCache {
     }
 
     // runtime complexity: O(1)
-    void cleanup(InetAddress address, boolean removeTtl) {
+    void removeEntry(InetAddress address, boolean removeTtl) {
         Pair<Node<Entry>, Node<Entry>> rv = map.get(address);
         map.remove(address);
         ttiList.remove(rv.getElement0());
@@ -73,8 +73,8 @@ public class InetAddressCache implements AddressCache {
         Node<Entry> ttiPtr = ttiList.pushFront(e);
 
         if (ttlPtr == null) {
-        	ttlPtr = ttlList.pushFront(e);
-        } 
+            ttlPtr = ttlList.pushFront(e);
+        }
 
         map.put(address, new Pair(ttiPtr, ttlPtr));
     }
@@ -86,11 +86,11 @@ public class InetAddressCache implements AddressCache {
         }
 
         synchronized(lock) {
-        	Node<Entry> ttlPtr = null;
-        	
-        	if(map.containsKey(address)) {
-            	ttlPtr = map.get(address).getElement1();
-                cleanup(address, false);
+            Node<Entry> ttlPtr = null;
+
+            if(map.containsKey(address)) {
+                ttlPtr = map.get(address).getElement1();
+                removeEntry(address, false);
             }
 
             boolean empty = ttiList.isEmpty();
@@ -117,7 +117,7 @@ public class InetAddressCache implements AddressCache {
     public boolean remove(InetAddress address) {
         synchronized(lock) {
             if(map.containsKey(address)) {
-                cleanup(address, true);
+            	removeEntry(address, true);
                 return true;
             }
         }
